@@ -296,6 +296,9 @@ def create_parser():
     parser.add_argument('-i', '--use_timestamps_for_filenames', required=False,
                         action='store_true',
                         help='Add hour/mins/secs to output file names (no argument required)')
+    parser.add_argument('-g', '--get_survey', required=False,
+                        action='store_true',
+                        help='Get JSON formatted survey questions and response options')
 
     return parser
 
@@ -339,6 +342,9 @@ if __name__ == '__main__':
 
     if args.use_timestamps_for_filenames:
         use_timestamps_for_filenames = True
+
+    if args.get_survey:
+        get_survey = True
 
     q = Qualtrics(api_token=server_token, project_name=project_name, base_url=base_url,
                   path_to_output_files=file_output_path, use_timestamps_for_filenames=use_timestamps_for_filenames)
