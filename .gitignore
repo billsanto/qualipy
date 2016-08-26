@@ -1,0 +1,7 @@
+/scripts/
+/tests_private/
+/source_deprecated/
+/certs/
+.idea/
+certs/
+data_out/
