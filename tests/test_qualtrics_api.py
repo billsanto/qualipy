@@ -1,5 +1,5 @@
 import unittest
-from source import qualipy
+from source import tricipy
 
 
 class TestQualtricsApi(unittest.TestCase):
@@ -9,7 +9,7 @@ class TestQualtricsApi(unittest.TestCase):
     use_timestamps_for_output_files = False
 
     def get_survey(self, project_name, survey_token, survey_name, write_to_disk):
-        q = qualipy.Qualtrics(project_name=project_name, api_token=self.server_token, base_url=self.base_url,
+        q = tricipy.Qualtrics(project_name=project_name, api_token=self.server_token, base_url=self.base_url,
                               use_timestamps_for_filenames=self.use_timestamps_for_output_files)
         return q.get_survey(survey_token=survey_token, survey_name=survey_name,
                             write_to_disk=write_to_disk)
