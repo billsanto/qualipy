@@ -53,8 +53,6 @@ class Qualtrics:
         url_suffix = 'responseexports'
         form_fields = {"surveyId": survey_token, "format": result_format.lower()}
 
-        # Ref: https://api.qualtrics.com/docs/json
-
         if 'lastResponseId' in kwargs:
             form_fields['lastResponseId'] = kwargs['lastResponseId']
 
@@ -144,7 +142,6 @@ class Qualtrics:
         full_url = self.__base_url + 'surveys/' + survey_token
         response_data = requests.get(full_url, headers=self.__api_token_header)
 
-        # data = response_data.content
         response_data_json = json.loads(response_data.content)['result']  # return just result if other branches are desired
 
         if write_to_disk:
@@ -205,8 +202,6 @@ class Qualtrics:
             response_data_pd = json_data
         else:
             raise ValueError("Need to add a new type of dataframe object value to the code.")
-
-        # df = pd.read_json(response_data_pd)
 
         # .applymap() converts all zero length strings to ' '.  Feather segfaults if it encounters ''
         response_data_pd = response_data_pd.applymap(lambda x: x.replace('', ' ') if x == '' else x)
