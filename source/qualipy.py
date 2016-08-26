@@ -298,7 +298,7 @@ def create_parser():
                         help='Add hour/mins/secs to output file names (no argument required)')
     parser.add_argument('-g', '--get_survey', required=False,
                         action='store_true',
-                        help='Get JSON formatted survey questions and response options')
+                        help='Get JSON formatted survey questions and response options (when write_to_disk is selected)')
 
     return parser
 
