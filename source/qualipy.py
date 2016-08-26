@@ -217,7 +217,7 @@ class Qualtrics:
         """
             Given a pandas dataframe, write df to disk in feather format
         :param dataframe:  Pandas df
-        :return:  NA
+        :return:  Full path to file
         """
 
         path_to_files = self.__path_to_output_files
