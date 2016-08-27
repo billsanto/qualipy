@@ -47,6 +47,7 @@ class Qualtrics:
         :param max_wait_ms: Number of millisecs to wait for a response before abandoning the API query
         :param sleep_ms:
         :param kwargs: Various parameters to limit the number of responses from the API
+
         :return: If not writing to disk, returns a dict, else writes to disk and returns nothing
         """
 
@@ -142,7 +143,7 @@ class Qualtrics:
         full_url = self.__base_url + 'surveys/' + survey_token
         response_data = requests.get(full_url, headers=self.__api_token_header)
 
-        response_data_json = json.loads(response_data.content)['result']  # return just result if other branches are desired
+        response_data_json = json.loads(response_data.content) # ['result']  # return just result if other branches are desired
 
         if write_to_disk:
             if not isinstance(self.__path_to_output_files, str):
@@ -153,22 +154,28 @@ class Qualtrics:
             elif self.__path_to_output_files[-1] != os.path.sep:
                 self.__path_to_output_files += '/'
 
-            path = self.setup_output_filename(base_path=self.__path_to_output_files, survey_name=survey_name,
+            self.write_json_to_disk(json_data=response_data_json, survey_name=survey_name,
                                               type='survey', extension='json')
-
-            self.write_json_to_disk(json_data=response_data_json, full_file_path=path)
         else:
             print 'Retrieved survey data for ' + survey_name
 
         return response_data_json
 
-    def write_json_to_disk(self, json_data, full_file_path):
+    def write_json_to_disk(self, json_data, survey_name, type, extension='json'):
         """
             Given json data as input, write to disk
         :param json_data:  The data to be written to disk
         :param full_file_path:  Complete file path to write, including file name
+        :param type:  Used to help identify the survey type in the filename
+        :param extension:  json by default
         :return:
         """
+
+        full_file_path = self.setup_output_filename(base_path=self.__path_to_output_files, survey_name=survey_name,
+                                              type=type, extension='json')
+        path_to_symlink = self.setup_output_filename(base_path=self.__path_to_output_files, survey_name=survey_name,
+                                                  type=type, extension='json', use_date=False, use_latest=True)
+
         with open(full_file_path, 'w') as outfile:
             try:
                 json.dump(json_data, outfile, sort_keys=True, indent=4, ensure_ascii=True)
@@ -184,6 +191,15 @@ class Qualtrics:
                 # traceback.print_exc()
 
                 raise ValueError('Unable to write json output to disk at ' + os.path.abspath(full_file_path))
+
+            try:
+                if os.path.islink(path_to_symlink):
+                    os.unlink(path_to_symlink)
+
+                os.symlink(full_file_path, path_to_symlink)
+                print ' '.join([os.path.abspath(path_to_symlink), 'symbolic link updated'])
+            except IOError, e:
+                raise IOError('Unable to create symbolic link to ' + os.path.abspath(full_file_path) + '. Error: ' + str(e))
 
     def create_df_from_api_data(self, json_data):
         """
@@ -212,6 +228,8 @@ class Qualtrics:
         """
             Given a pandas dataframe, write df to disk in feather format
         :param dataframe:  Pandas df
+        :param survey_name:  Survey name
+        :param url_suffix:  Used to identify the survey type
         :return:  Full path to file
         """
 
@@ -225,27 +243,60 @@ class Qualtrics:
         elif path_to_files[-1] != os.path.sep:
             path_to_files += '/'
 
-        path = self.setup_output_filename(base_path=path_to_files, survey_name=survey_name,
+        latest_dir = os.path.abspath(path_to_files + self.__project_name + os.path.sep + 'latest')
+
+        try:
+            if not os.path.exists(latest_dir):
+                os.makedirs(latest_dir, 0755)
+        except:
+            raise IOError('Unable to create a folder to contain the latest versions of files')
+
+        path_to_file = self.setup_output_filename(base_path=path_to_files, survey_name=survey_name,
                                           type=url_suffix.split('/')[0], extension='feather')
 
         try:
-            feather.write_dataframe(dataframe, path)
-            print ' '.join([os.path.abspath(path), 'written to disk'])
+            feather.write_dataframe(dataframe, path_to_file)
+            print ' '.join([os.path.abspath(path_to_file), 'written to disk'])
         except:
-            raise ValueError('Unable to write feather output to disk')
+            raise IOError('Unable to write feather output to disk')
 
-        return path
+        try:
+            path_to_symlink = self.setup_output_filename(base_path=path_to_files,
+                                                         survey_name=survey_name,
+                                                         type=url_suffix.split('/')[0],
+                                                         extension='feather',
+                                                         use_date=False,
+                                                         use_latest=True)
 
-    def setup_output_filename(self, base_path, survey_name, type, extension):
+            if os.path.islink(path_to_symlink):
+                os.unlink(path_to_symlink)
+
+            os.symlink(path_to_file, path_to_symlink)
+            print ' '.join([os.path.abspath(path_to_symlink), 'symbolic link updated'])
+        except IOError, e:
+            raise IOError('Unable to create symbolic link to ' + os.path.abspath(path_to_file) + '. Error: ' + str(e))
+
+        return path_to_file
+
+    def setup_output_filename(self, base_path, survey_name, type, extension, use_date=True, use_latest=False):
         """
+            Build and return filenames for output data, e.g.,
+                ./data_out/projectname/20160826_mysurveyname_survey.json
+                ./data_out/projectname/latest/mysurveyname_survey.json
+                ./data_out/projectname/20160826_mysurveyname_responseexports.feather
+                ./data_out/projectname/20160826_131654_mysurveyname_responseexports.feather
+                ./data_out/projectname/latest/mysurveyname_responseexports.feather
 
         :param base_path:  Main output directory
         :param survey_name:  Subfolder which is the project name
         :param type:  Typically the API url_suffix, e.g., responseexports
         :param extension:  Filename extension, e.g., "feather"
+        :param use_date:  Add date (e.g., 20160824) to filename
+        :param use_latest  If True, then add use the "latest" folder after the main subfolder
         :return:  The complete path
         """
 
+        latest_folder = 'latest'
         sub_folder = base_path + self.__project_name
 
         if not os.path.exists(sub_folder):
@@ -257,7 +308,13 @@ class Qualtrics:
             now = datetime.datetime.now()
             today = '_'.join([now.strftime("%Y%m%d"), now.strftime("%H%M%S")])
 
-        path = sub_folder + '/' + today + '_' + survey_name + '_' + type + '.' + extension
+        if use_date:
+            path = sub_folder + os.sep + today + '_' + survey_name + '_' + type + '.' + extension
+        else:
+            if use_latest:
+                sub_folder = os.sep.join([sub_folder, latest_folder])
+
+            path = sub_folder + os.sep + survey_name + '_' + type + '.' + extension
 
         return path
 
